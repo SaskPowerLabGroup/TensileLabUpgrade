@@ -16,8 +16,13 @@ def on_disconnect():
     print("Client Disconnected")
 
 def on_message(client,userdata,message):
-    print(message.payload)
+    mesValue = message.payload.decode("utf-8")
 
+    if mesValue.lower() == "zero":
+        zero()
+    
+    elif mesValue.lower() == "units":
+        unitSwitch()
 def update():
     """
     Main loop for getting and updating value from the string gauge
