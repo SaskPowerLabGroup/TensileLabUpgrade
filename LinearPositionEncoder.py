@@ -4,13 +4,16 @@ from tkinter import *
 import time
 import paho.mqtt.client as mqtt
 
+#Variables
 ratio_mm = 49.7030
 ratio_inch = 25.4*ratio_mm
 ratio = ratio_inch
 unit = " in"
 formatting = ".3f"
-mqttClient = mqtt.Client("stringGauge")
-mqttClient.connect("192.168.7.1")
+
+def on_disconnect():
+    mqttClient.loop_stop()
+    print("Client Disconnected")
 
 def on_message(client,userdata,message):
     print(message.payload)
@@ -19,12 +22,17 @@ def update():
     """
     Main loop for getting and updating value from the string gauge
     """
-    #Gets Value and Updates main Tkin
+    #Gets Value and Updates main Tkinter label
     variable = (encoder.getPosition()/ratio)
     formatted = format(variable,formatting)
     value["text"] = formatted +unit
-    mqttClient.publish("powerhouse",variable)
-    main.after(100, update)
+
+    #publish to mqtt broker
+    mqttClient.publish("stringGauge",variable)
+
+    #runs function again after 
+    mqttClient.loop(1)
+    main.after(50, update)
 
 def zero():
     """
@@ -53,7 +61,16 @@ def unitSwitch():
         unit = " mm"
         formatting = ".2f"
         value.config(font=("Helvetica",80))
-        
+
+#mqtt things
+mqttClient = mqtt.Client("stringGauge")
+mqttClient.on_message = on_message
+mqttClient.on_disconnect = on_disconnect
+mqttClient.connect("192.168.7.1")
+mqttClient.subscribe("stringGauge/inputs")
+mqttClient.loop_start()
+
+#Encoder set-up
 encoder = Encoder()
 encoder.setChannel(1)
 encoder.openWaitForAttachment(5000)
@@ -82,6 +99,7 @@ unitsButton.grid(row = 2, column = 2, padx = 50)
 update()
 
 mainloop()
+
 
 
 
