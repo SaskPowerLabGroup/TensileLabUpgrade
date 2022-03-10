@@ -3,6 +3,7 @@ from Phidget22.Devices.Encoder import *
 from tkinter import *
 import time
 import paho.mqtt.client as mqtt
+import queue as q
 from threading import Thread
 
 #Variables
@@ -12,8 +13,10 @@ ratio = ratio_inch
 unit = " in"
 formatting = ".3f"
 
+connection_messages = q.Queue()
 Disconnected = True
 count = 0
+checkcycles = 0
 
 def on_disconnect(self,userdata,rc):
     global Disconnected
@@ -23,14 +26,18 @@ def on_disconnect(self,userdata,rc):
 
 def on_connect(self,userdata,flags,result):
     global Disconnected
-    print("Connect to Mqtt broker")
+    print("Connected to Mqtt broker")
     Disconnected = False
 
 def connect():
+    print("Attempting to connect")
     try:
+        print("trying loop")
         mqttClient.connect("192.168.7.1")
         mqttClient.subscribe("stringGauge/inputs")
+        mqttClient.subscribe("stringGauge/connection")
         mqttClient.loop_start()
+        print("loop finished")
     except:
         print("Could not connect")
         return
@@ -38,18 +45,22 @@ def connect():
 
 def on_message(client,userdata,message):
     mesValue = message.payload.decode("utf-8")
-
     if mesValue.lower() == "zero":
         zero()
     
     elif mesValue.lower() == "units":
         unitSwitch()
+    
+    elif mesValue.lower() == "connected":
+        connection_messages.put(mesValue)
+        print("connection message recieved")
+        
 
 def update():
     """
     Main loop for getting and updating value from the string gauge
     """
-    global count
+    global count, Disconnected, checkcycles
     #Gets Value and Updates main Tkinter label
     variable = (encoder.getPosition()/ratio)
     formatted = format(variable,formatting)
@@ -57,6 +68,21 @@ def update():
 
     if not Disconnected:
         mqttClient.publish("stringGauge",variable)
+        checkcycles += 1
+        if checkcycles == 100:
+            mqttClient.publish("stringGauge/connection","connected")
+            print("Attempting to send da message")
+        elif checkcycles == 200:
+            checkcycles = 0
+            print(connection_messages.empty())
+
+            if connection_messages.empty():
+                Disconnected = True
+                mqttClient.loop_stop()
+                print("Disconnected")
+            else:
+                connection_messages.get()
+
     elif Disconnected and count == 600:
         connection_thread = Thread(target=connect)
         connection_thread.start()
@@ -64,6 +90,7 @@ def update():
     else:
         count += 1
 
+    
     #runs function again after 50 ms
     main.after(50, update)
 
