@@ -3,6 +3,7 @@ from Phidget22.Devices.Encoder import *
 from tkinter import *
 import time
 import paho.mqtt.client as mqtt
+from threading import Thread
 
 #Variables
 ratio_mm = 49.7030
@@ -11,9 +12,29 @@ ratio = ratio_inch
 unit = " in"
 formatting = ".3f"
 
-def on_disconnect():
+Disconnected = True
+count = 0
+
+def on_disconnect(self,userdata,rc):
+    global Disconnected
     mqttClient.loop_stop()
     print("Client Disconnected")
+    Disconnected = True
+
+def on_connect(self,userdata,flags,result):
+    global Disconnected
+    print("Connect to Mqtt broker")
+    Disconnected = False
+
+def connect():
+    try:
+        mqttClient.connect("192.168.7.1")
+        mqttClient.subscribe("stringGauge/inputs")
+        mqttClient.loop_start()
+    except:
+        print("Could not connect")
+        return
+    
 
 def on_message(client,userdata,message):
     mesValue = message.payload.decode("utf-8")
@@ -23,20 +44,27 @@ def on_message(client,userdata,message):
     
     elif mesValue.lower() == "units":
         unitSwitch()
+
 def update():
     """
     Main loop for getting and updating value from the string gauge
     """
+    global count
     #Gets Value and Updates main Tkinter label
     variable = (encoder.getPosition()/ratio)
     formatted = format(variable,formatting)
     value["text"] = formatted +unit
 
-    #publish to mqtt broker
-    mqttClient.publish("stringGauge",variable)
+    if not Disconnected:
+        mqttClient.publish("stringGauge",variable)
+    elif Disconnected and count == 600:
+        connection_thread = Thread(target=connect)
+        connection_thread.start()
+        count = 0
+    else:
+        count += 1
 
-    #runs function again after 
-    mqttClient.loop(1)
+    #runs function again after 50 ms
     main.after(50, update)
 
 def zero():
@@ -67,13 +95,14 @@ def unitSwitch():
         formatting = ".2f"
         value.config(font=("Helvetica",80))
 
+connection_thread = Thread(target=connect)
 #mqtt things
 mqttClient = mqtt.Client("stringGauge")
 mqttClient.on_message = on_message
 mqttClient.on_disconnect = on_disconnect
-mqttClient.connect("192.168.7.1")
-mqttClient.subscribe("stringGauge/inputs")
-mqttClient.loop_start()
+mqttClient.on_connect = on_connect
+t = Thread(target = connect)
+t.start()
 
 #Encoder set-up
 encoder = Encoder()
@@ -104,7 +133,3 @@ unitsButton.grid(row = 2, column = 2, padx = 50)
 update()
 
 mainloop()
-
-
-
-
