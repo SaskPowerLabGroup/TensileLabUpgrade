@@ -4,6 +4,7 @@ from tkinter import *
 import time
 import paho.mqtt.client as mqtt
 import queue as q
+import sys
 from threading import Thread
 
 #Variables
@@ -28,20 +29,21 @@ def on_connect(self,userdata,flags,result):
     global Disconnected
     print("Connected to Mqtt broker")
     Disconnected = False
+    ### update the label to say connected
+    status["text"] = "Connected"
+def terminate():
+    """ Quits the program """
+    sys.exit("Program Exited")
 
 def connect():
-    print("Attempting to connect")
+    """Attempts to the MQTT broker""" 
     try:
-        print("trying loop")
         mqttClient.connect("192.168.7.1")
         mqttClient.subscribe("stringGauge/inputs")
         mqttClient.subscribe("stringGauge/connection")
         mqttClient.loop_start()
-        print("loop finished")
     except:
-        print("Could not connect")
         return
-    
 
 def on_message(client,userdata,message):
     mesValue = message.payload.decode("utf-8")
@@ -55,7 +57,6 @@ def on_message(client,userdata,message):
         connection_messages.put(mesValue)
         print("connection message recieved")
         
-
 def update():
     """
     Main loop for getting and updating value from the string gauge
@@ -67,7 +68,7 @@ def update():
     value["text"] = formatted +unit
 
     if not Disconnected:
-        mqttClient.publish("stringGauge",variable)
+        mqttClient.publish("stringGauge",formatted)
         checkcycles += 1
         if checkcycles == 100:
             mqttClient.publish("stringGauge/connection","connected")
@@ -80,6 +81,8 @@ def update():
                 Disconnected = True
                 mqttClient.loop_stop()
                 print("Disconnected")
+                ### Update label to say disconnected
+                status["text"] = "Disconnected"
             else:
                 connection_messages.get()
 
@@ -99,7 +102,6 @@ def zero():
     Sets encoder position to 0.00
     """
     encoder.setPosition(0)
-
 
 def unitSwitch():
     """
@@ -122,7 +124,6 @@ def unitSwitch():
         formatting = ".2f"
         value.config(font=("Helvetica",80))
 
-connection_thread = Thread(target=connect)
 #mqtt things
 mqttClient = mqtt.Client("stringGauge")
 mqttClient.on_message = on_message
@@ -146,6 +147,11 @@ value = Label(main, text="0.0",padx = 100)
 value.config(font=("Helvetica",95))
 value.grid(row = 1, column = 0, columnspan = 3, pady = 75,padx = 10)
 
+#Connection Status
+status = Label(main, text="Disconnected")
+status.config(font=("Helvetica",30))
+status.grid(row = 4, column = 3, pady = 75,padx = 10)
+
 #Zero button
 zeroButton = Button(main, padx = 30, pady = 30, command = zero, text = "Zero")
 zeroButton.config(font=("Helvetica",50))
@@ -155,6 +161,11 @@ zeroButton.grid(row = 2, column = 0, padx = 70)
 unitsButton = Button(main, padx = 30, pady = 30, command = unitSwitch, text = "mm/inch")
 unitsButton.config(font=("Helvetica",50))
 unitsButton.grid(row = 2, column = 2, padx = 50)
+
+#Terminate Button
+unitsButton = Button(main, padx = 10, pady = 10, command = terminate, text = "X")
+unitsButton.config(font=("Helvetica",50))
+unitsButton.grid(row = 0, column = 3)
 
 #Updates live readings
 update()
