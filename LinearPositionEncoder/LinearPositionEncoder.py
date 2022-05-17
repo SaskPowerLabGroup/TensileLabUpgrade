@@ -11,6 +11,7 @@ from threading import Thread
 ratio_mm = 49.7030
 ratio_inch = 25.4*ratio_mm
 ratio = ratio_inch
+min_recorded = 0.001
 unit = " in"
 formatting = ".3f"
 
@@ -18,12 +19,15 @@ connection_messages = q.Queue()
 Disconnected = True
 count = 0
 checkcycles = 0
+Diff_Value = -1
 
 def on_disconnect(self,userdata,rc):
     global Disconnected
     mqttClient.loop_stop()
     print("Client Disconnected")
     Disconnected = True
+    status["text"]="Disconnected"
+    status["fg"]="red"
 
 def on_connect(self,userdata,flags,result):
     global Disconnected
@@ -31,6 +35,8 @@ def on_connect(self,userdata,flags,result):
     Disconnected = False
     ### update the label to say connected
     status["text"] = "Connected"
+    status["fg"]="green"
+
 def terminate():
     """ Quits the program """
     sys.exit("Program Exited")
@@ -57,7 +63,18 @@ def on_message(client,userdata,message):
     elif mesValue.lower() == "connected":
         connection_messages.put(mesValue)
         print("connection message recieved")
-        
+def marginally_different(val):
+    """Checks if value is different from global variable: Diffval
+        Input: a float
+        Return: True if value is marginally different"""
+    global Diff_Value
+
+    if abs(val-Diff_Value) > min_recorded:
+        Diff_Value = val
+        return True
+    else: 
+        return False
+
 def update():
     """
     Main loop for getting and updating value from the string gauge
@@ -68,8 +85,13 @@ def update():
     formatted = format(variable,formatting)
     value["text"] = formatted +unit
 
+    post = marginally_different(variable)
+    
+    if (not Disconnected) and recording.get() and post:
+        mqttClient.publish("stringGauge/recording",formatted)
+
+
     if not Disconnected:
-        mqttClient.publish("stringGauge",formatted)
         checkcycles += 1
         if checkcycles == 100:
             mqttClient.publish("stringGauge/connection","connected")
@@ -79,11 +101,7 @@ def update():
             print(connection_messages.empty())
 
             if connection_messages.empty():
-                Disconnected = True
-                mqttClient.loop_stop()
-                print("Disconnected")
-                ### Update label to say disconnected
-                status["text"] = "Disconnected"
+               on_disconnect(True,True,True)
             else:
                 connection_messages.get()
 
@@ -112,18 +130,20 @@ def unitSwitch():
     global ratio
     global unit
     global formatting
+    global min_recorded
     
     if ratio == ratio_mm:
         ratio = ratio_inch
         unit = " in"
         formatting = ".3f"
         value.config(font=("Helvetica",95))
-        
+        min_recorded = 0.00001
     else:
         ratio = ratio_mm
         unit = " mm"
         formatting = ".2f"
         value.config(font=("Helvetica",80))
+        min_recorded(0.0001)
 
 #Encoder set-up
 encoder = Encoder()
@@ -138,30 +158,34 @@ main.attributes("-fullscreen", True)
 #Main Value
 value = Label(main, text="0.0",padx = 100)
 value.config(font=("Helvetica",95))
-value.grid(row = 1, column = 0, columnspan = 3, pady = 75,padx = 10)
+value.place(relx=0.5,rely=0.2, anchor="n")
 
 #Connection Status
 status = Label(main, text="Disconnected")
-status.config(font=("Helvetica",30))
-status.grid(row = 4, column = 3, pady = 75,padx = 10)
+status.config(font=("Helvetica",20),fg="red")
+status.place(relx=0.75,rely=0.83)
 
 #Zero button
-zeroButton = Button(main, padx = 30, pady = 30, command = zero, text = "Zero")
+zeroButton = Button(main, padx = 10, pady = 10, command = zero, text = "Zero")
 zeroButton.config(font=("Helvetica",50))
-zeroButton.grid(row = 2, column = 0, padx = 70)
+zeroButton.place(relx = 0.15, rely= 0.6, anchor = "nw")
 
 #Switchunits Button
-unitsButton = Button(main, padx = 30, pady = 30, command = unitSwitch, text = "mm/inch")
+unitsButton = Button(main, padx = 10, pady = 10, command = unitSwitch, text = "mm/inch")
 unitsButton.config(font=("Helvetica",50))
-unitsButton.grid(row = 2, column = 2, padx = 50)
+unitsButton.place(relx = 0.85, rely= 0.6, anchor = "ne")
 
 #Terminate Button
-terminateButton = Button(main, padx = 5, pady = 5, command = terminate, text = "X")
+terminateButton = Button(main, command = terminate, text = "X")
 terminateButton.config(font=("Helvetica",20))
-terminateButton.grid(row = 0, column = 0)
+terminateButton.place(x=0,y=0)
 
 #Record Data Swtich
-recordValues = False 
+recording = BooleanVar(main)
+recording.set(True)
+recordValues = Checkbutton(main, text="Record Data", variable=recording)
+recordValues.place(relx=0.70,rely=0.9)
+recordValues.config(font=("Helvetica",20))
 
 #mqtt things
 mqttClient = mqtt.Client("stringGauge")
