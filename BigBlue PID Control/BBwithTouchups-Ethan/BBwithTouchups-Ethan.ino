@@ -6,6 +6,7 @@
    Changed upper limit to 253000 LBS @ 0 Volts to represent LBS.  Was running in Kg.
 
 */git push test
+*/git pull test
 
 /* Features still needed: 
  *  Some way to detect failure
