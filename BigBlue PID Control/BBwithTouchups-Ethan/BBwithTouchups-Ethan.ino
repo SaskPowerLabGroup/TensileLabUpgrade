@@ -5,8 +5,8 @@
    Changed variable name InputMapped to InputRaw to reflect it is in A2D counts
    Changed upper limit to 253000 LBS @ 0 Volts to represent LBS.  Was running in Kg.
 
-*/git push test
-*/git pull test
+//git push test
+//git pull test
 
 /* Features still needed: 
  *  Some way to detect failure
@@ -23,11 +23,41 @@ Adafruit_ADS1115 adcOne;
 //#define PIN_OUTPUT 8
 //#define PIN_PWM 9
 //#define PIN_DIR 8
+
+#include <Adafruit_SSD1306.h>
+#define OLED_RESET -1  // no reset wired?
+Adafruit_SSD1306 display(OLED_RESET);
+static const unsigned char PROGMEM logo16_glcd_bmp[] =
+{ B00000000, B11000000,
+  B00000001, B11000000,
+  B00000001, B11000000,
+  B00000011, B11100000,
+  B11110011, B11100000,
+  B11111110, B11111000,
+  B01111110, B11111111,
+  B00110011, B10011111,
+  B00011111, B11111100,
+  B00001101, B01110000,
+  B00011011, B10100000,
+  B00111111, B11100000,
+  B00111111, B11110000,
+  B01111100, B11110000,
+  B01110000, B01110000,
+  B00000000, B00110000 };
+#define NUMFLAKES 10
+#define XPOS 0
+#define YPOS 1
+#define DELTAY 2  
+
+#if (SSD1306_LCDHEIGHT != 48)
+#error("Height incorrect, please fix Adafruit_SSD1306.h!");
+#endif
+
 #define PIN_SETPOINT A0
 #define PIN_INPUT A2
 
 //Percentage drop in 0.5s that defines a failure
-double failurePercent = 0.4 
+double failurePercent = 0.4; 
 
 //Timer variables
 unsigned long previousMillis = 0;
@@ -56,11 +86,15 @@ PID myPID(&Input, &Output, &Setpoint,kp,ki,kd,P_ON_M, DIRECT);
 void setup()
 {
    Serial1.begin(115200);
-   
+
+display.clearDisplay();
+display.setTextSize(1);
+display.setTextColor(WHITE);    
+
 analogWriteResolution(12);
-  analogWrite(DAC0, 2048);
-  pinMode(2, OUTPUT);
-  digitalWrite(2, LOW);
+analogWrite(DAC0, 2048);
+pinMode(2, OUTPUT);
+digitalWrite(2, LOW);
   // Initializes ADC and warns if ADC does not connenct
   if (!adcOne.begin(0x48)) {
     Serial1.println("Failed to initialize ADC One.");
@@ -91,6 +125,7 @@ analogWriteResolution(12);
 
 void loop()
 {
+  ToDisplay();
   InputRaw = adcOne.readADC_SingleEnded(0);
   Input = map(InputRaw, zeroPoint, fromHigh, 0, upperLimit);
   
@@ -106,11 +141,11 @@ void loop()
 
   //posts to mqtt every 500 ms also checks for failure
   unsigned long currentMillis = millis();
-  double forceDifferential
+  double forceDifferential;
   
   if (currentMillis - previousMillis >= interval) {
     previousMillis = currentMillis;
-    forceDifferential = Input
+    forceDifferential = Input;
     Serial1.print(Setpoint);
     Serial1.print( ",");
     Serial1.println(Input);
@@ -284,3 +319,21 @@ double smoothed(int numReadings)
   averaged = total / numReadings;
   return averaged;
 }
+
+  void ToDisplay(){
+    display.clearDisplay();
+    
+    display.setCursor(0,0);
+    display.print("T:");
+    //display.print(temperature);
+    display.println(" C");
+    display.print("P:");
+    //display.print(pressure);
+    display.println(" H");
+    display.print("H:");
+    //display.print(humidity);
+    display.println(" %");
+    display.display();
+    
+   
+  }
