@@ -197,6 +197,11 @@ void reconnect() {
     }
   }
 }
+
+double map_float(double x, double in_min, double in_max, double out_min, double out_max) {
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
 void loop() {
  if (!client.connected()) {
     reconnect();
@@ -306,7 +311,7 @@ void printResult(String text, SHT31D result) {
   }
   void ReadVoltage(){
   a2dRead = adcOne.readADC_Differential_0_1();
-  voltage = map(a2dRead, 0, 32767, 0, 409000);
+  voltage = map_float(a2dRead, 0, 32767, 0, 409000);
   kvolt = voltage/1000.0;
   }
   // function to print a device address
