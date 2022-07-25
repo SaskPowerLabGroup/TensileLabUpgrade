@@ -5,7 +5,7 @@
 // Update these with values suitable for your network.
 const char* ssid = "testlab";
 const char* password = "HVLab001";
-const char* mqtt_server = "192.168.50.2";
+const char* mqtt_server = "192.168.50.10";
 #define mqtt_port 1883
 #define MQTT_USER "username"
 #define MQTT_PASSWORD "password"
