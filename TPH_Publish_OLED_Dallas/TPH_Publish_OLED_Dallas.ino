@@ -1,4 +1,6 @@
 #include <Adafruit_SSD1306.h>
+#include <Adafruit_ADS1X15.h>
+Adafruit_ADS1115 adcOne;
 #define OLED_RESET 0  // GPIO0
 Adafruit_SSD1306 display(OLED_RESET);
 //Intended for Wemos D1 mini ESP32
@@ -74,16 +76,24 @@ static const unsigned char PROGMEM logo16_glcd_bmp[] =
 #endif
 void setup()
 {
+Serial.begin(9600);  
 sensors.begin();
   
   // Grab a count of devices on the wire
   numberOfDevices = sensors.getDeviceCount();  
+if (!adcOne.begin(0x48)) {
+    Serial1.println("Failed to initialize ADC One.");
+    while (1);
+    Serial1.println("ADC 1 OK");
+}  
+adcOne.setGain(GAIN_FOUR);
+adcOne.setDataRate(RATE_ADS1115_8SPS);
 display.clearDisplay();
 display.setTextSize(1);
 display.setTextColor(WHITE);  
 pinMode(ledPin, OUTPUT);
 Wire.begin();
-Serial.begin(9600);
+
  // locate devices on the bus
   Serial.print("Locating devices...");
   Serial.print("Found ");
@@ -278,6 +288,10 @@ void printResult(String text, SHT31D result) {
     display.display();
     
    
+  }
+  void ReadVoltage(){
+  results = ads.readADC_Differential_0_1();
+  Voltage = map(resuts, 0, 32768, 0, 400);
   }
   // function to print a device address
 void printAddress(DeviceAddress deviceAddress) {
