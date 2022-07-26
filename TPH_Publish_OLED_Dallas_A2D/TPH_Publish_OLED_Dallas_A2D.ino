@@ -249,7 +249,7 @@ void printResult(String text, SHT31D result) {
     temperature = (result.t);
     Serial.print(temperature);
     char tempString1[8];
-    dtostrf(temperature, 1, 2, tempString1);
+    dtostrf(temperature, 1, 1, tempString1);
     client.publish("esp32/temperature", tempString1);
     Serial.print("C, P=");
     //Serial.print(bmp.readPressure());
@@ -257,14 +257,14 @@ void printResult(String text, SHT31D result) {
     pressure = pressure/100;
     Serial.print(pressure);
     char tempString2[10];
-    dtostrf(pressure, 1, 2, tempString2);
+    dtostrf(pressure, 1, 1, tempString2);
     client.publish("esp32/pressure", tempString2);
     Serial.print("hPa, RH=");
     
     humidity = (result.rh);
     Serial.print(humidity);
     char tempString3[8];
-    dtostrf(humidity, 1, 2, tempString3);
+    dtostrf(humidity, 1, 1, tempString3);
     client.publish("esp32/humidity", tempString3);
     Serial.print("%, C=");
     Serial.print(a2dRead);
@@ -277,7 +277,7 @@ void printResult(String text, SHT31D result) {
     
     
     char tempString4[10];
-    dtostrf(voltage, 1, 2, tempString4);
+    dtostrf(kvolt, 1, 1, tempString4);
     client.publish("esp32/voltage", tempString4);
     
    
@@ -294,13 +294,13 @@ void printResult(String text, SHT31D result) {
     
     display.setCursor(0,0);
     display.print("T:");
-    display.print(temperature);
+    display.print(temperature,1);
     display.println(" C");
     display.print("P:");
-    display.print(pressure);
+    display.print(pressure,1);
     display.println(" H");
     display.print("H:");
-    display.print(humidity);
+    display.print(humidity,1);
     display.println(" %");
     display.print("V:");
     display.print(kvolt,1);
@@ -311,7 +311,7 @@ void printResult(String text, SHT31D result) {
   }
   void ReadVoltage(){
   a2dRead = adcOne.readADC_Differential_0_1();
-  voltage = map_float(a2dRead, 0, 32767, 0, 409000);
+  voltage = map_float(a2dRead, 0, 31992, 0, 400000);
   kvolt = voltage/1000.0;
   }
   // function to print a device address
