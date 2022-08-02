@@ -46,8 +46,10 @@ double kp = 1, ki = .5, kd = 0;// If running Proportional on Measurement, increa
 
 //Mappping Values
 double InputRaw = 0;
+double Input1Raw = 0;
 double Input2Raw = 0;
-double Input2 = 0;
+double Input3Raw = 0;
+double Input1 = 0;
 double zeroPoint = 20422; //Around 2.55 volts from the load cell converter or the zero point
 double fromHigh = 0;
 //double upperLimit = 253000;//0 volts out of load cell converter would represent 253000 LBS Tension
@@ -103,8 +105,11 @@ void loop()
   ToDisplay();
   InputRaw = adcOne.readADC_SingleEnded(0);
   Input = map(InputRaw, zeroPoint, fromHigh, 0, upperLimit);
+  Input1Raw = adcOne.readADC_SingleEnded(1);
+  Input2Raw = adcOne.readADC_SingleEnded(2);
+  Input3Raw = adcOne.readADC_SingleEnded(3);
   
-  Input2= map(Input2Raw, zeroPoint, fromHigh, 0, upperLimit);
+  Input1= map(Input1Raw, 0, fromHigh, 0, upperLimit);
   
   //Pressure = ads.readADC_SingleEnded(1);
   //Pressure1 = ads.readADC_SingleEnded(2);
