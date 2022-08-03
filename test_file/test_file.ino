@@ -7,7 +7,7 @@ Adafruit_ADS1115 adcOne;
 Adafruit_SSD1306 display(OLED_RESET);
 //Timer variables
 unsigned long previousMillis = 0;
-const long interval = 500;
+const long interval = 2000;
 
 //Define Variables we'll be connecting to
 double Setpoint, Input, Output;
@@ -26,7 +26,7 @@ bool JogMode = false;
 PID myPID(&Input, &Output, &Setpoint,kp,ki,kd,P_ON_M, REVERSE);
 void setup() {
 Serial.begin(115200);
-Serial1.begin(115200);
+Serial1.begin(9600);
 display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
 display.clearDisplay();
 display.setTextSize(1);
@@ -52,7 +52,9 @@ myPID.SetSampleTime(50);
 //Serial.print("Setup Complete");
 //Serial.println();
 Serial.println("Setpoint,Input");
-Setpoint = 18;
+GetCylinderExtension();
+Input = stringGauge;
+Setpoint = Input;
 }
 
 void loop() {
@@ -75,6 +77,7 @@ myPID.Compute();
     Serial.print(Setpoint);
     Serial.print( ",");
     Serial.println(Input);
+    Serial1.print(Input);
    // Serial.print( ",");
   //  Serial.print(Output);
    // Serial.println(JogMode);
