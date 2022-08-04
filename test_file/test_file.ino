@@ -26,7 +26,7 @@ bool JogMode = false;
 PID myPID(&Input, &Output, &Setpoint,kp,ki,kd,P_ON_M, REVERSE);
 void setup() {
 Serial.begin(115200);
-Serial1.begin(9600);
+Serial1.begin(115200);
 display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
 display.clearDisplay();
 display.setTextSize(1);
@@ -77,7 +77,11 @@ myPID.Compute();
     Serial.print(Setpoint);
     Serial.print( ",");
     Serial.println(Input);
-    Serial1.print(Input);
+    Serial1.print("setpoint");
+    Serial1.println(Setpoint);
+    Serial1.print("position");
+    Serial1.println(Input);
+    
    // Serial.print( ",");
   //  Serial.print(Output);
    // Serial.println(JogMode);

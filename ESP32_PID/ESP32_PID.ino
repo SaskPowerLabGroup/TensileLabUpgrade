@@ -71,7 +71,7 @@ void callback(char* topic, byte *payload, unsigned int length) {
 
 void setup() {
   Serial.begin(115200);
-  Serial2.begin(9600, SERIAL_8N1, RXD2, TXD2);
+  Serial2.begin(115200, SERIAL_8N1, RXD2, TXD2);
   Serial.setTimeout(500);// Set time out for 
   setup_wifi();
   client.setServer(mqtt_server, mqtt_port);
