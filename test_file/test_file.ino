@@ -7,7 +7,7 @@ Adafruit_ADS1115 adcOne;
 Adafruit_SSD1306 display(OLED_RESET);
 //Timer variables
 unsigned long previousMillis = 0;
-const long interval = 2000;
+const long interval = 500;
 
 //Define Variables we'll be connecting to
 double Setpoint, Input, Output;
@@ -77,9 +77,10 @@ myPID.Compute();
     Serial.print(Setpoint);
     Serial.print( ",");
     Serial.println(Input);
-    Serial1.print("setpoint");
-    Serial1.println(Setpoint);
-    Serial1.print("position");
+    //Serial1.print("setpoint");
+    Serial1.print(Setpoint);
+    Serial1.print(",");
+    //Serial1.print("Position");
     Serial1.println(Input);
     
    // Serial.print( ",");
