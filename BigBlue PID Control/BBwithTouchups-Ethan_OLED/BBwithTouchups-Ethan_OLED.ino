@@ -15,10 +15,10 @@
 
 #include <PID_v1.h>
 #include <Adafruit_ADS1X15.h>
-
+#include <Adafruit_SSD1306.h>
 //Include when using the ADC ADS1115
 Adafruit_ADS1115 adcOne;
-//Adafruit_ADS1115 adcTwo;
+
 
 //#define PIN_OUTPUT 8
 //#define PIN_PWM 9
@@ -31,7 +31,7 @@ Adafruit_SSD1306 display(OLED_RESET);
 #define PIN_INPUT A2
 
 //Percentage drop in 0.5s that defines a failure
-double failurePercent = 0.4; 
+double failurePercent = 0.60; 
 
 //Timer variables
 unsigned long previousMillis = 0;
@@ -39,34 +39,39 @@ const long interval = 500;
 
 //Define Variables we'll be connecting to
 double Setpoint, Input, Output;
+double Setpointj, Inputj, Outputj;
 
 //Specify the links and initial tuning parameters
 //double Kp=2, Ki=5, Kd=1;
 double kp = 1, ki = .5, kd = 0;// If running Proportional on Measurement, increasing P slows response.
+double kpj = 10000, kij = 8000, kdj = 0;
 
 //Mappping Values
 double InputRaw = 0;
-double Input1Raw = 0;
-double Input2Raw = 0;
-double Input3Raw = 0;
-double Input1 = 0;
 double zeroPoint = 20422; //Around 2.55 volts from the load cell converter or the zero point
 double fromHigh = 0;
 //double upperLimit = 253000;//0 volts out of load cell converter would represent 253000 LBS Tension
 double upperLimit = 259135;
-bool JogMode = false;
+bool JogMode = true;
 
 //PID myPID(&Input, &Output, &Setpoint, kp, ki, kd, DIRECT);
 PID myPID(&Input, &Output, &Setpoint,kp,ki,kd,P_ON_M, DIRECT);
+PID jogPID(&Inputj, &Outputj, &Setpointj,kpj,kij,kdj,P_ON_M, REVERSE);
 
 void setup()
 {
-   Serial1.begin(115200);
+Serial.begin(9600);
+Serial.println("Setup Initalized");
+Serial1.begin(9600);
+Serial.println("l");
 display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+Serial.println("2");
 display.clearDisplay();
+Serial.println("l");
 display.setTextSize(1);
-display.setTextColor(WHITE);    
-
+display.setTextColor(WHITE);
+    
+Serial.println("Display initialized");
 
 analogWriteResolution(12);
 analogWrite(DAC0, 2048);
@@ -75,15 +80,11 @@ digitalWrite(2, LOW);
   // Initializes ADC and warns if ADC does not connenct
   if (!adcOne.begin(0x48)) {
     Serial1.println("Failed to initialize ADC One.");
+    Serial.println("Failed to initialize ADC One.");
     while (1);
     Serial1.println("ADC 1 OK");
+    Serial.println("ADC 1 OK");
   }
-/* if (!adcTwo.begin(0x49)) {
-  Serial1.println("Failed to initialize ADC Two.");
-  while (1);
-  Serial1.println("ADC 2 OK");
- }
-*/
 
   adcOne.setGain(GAIN_ONE);
   adcOne.setDataRate(RATE_ADS1115_128SPS);
@@ -92,36 +93,64 @@ digitalWrite(2, LOW);
 
   //turn the PID on
 
-  myPID.SetMode(AUTOMATIC);
+  myPID.SetMode(MANUAL);
   myPID.SetOutputLimits(1548, 2548);
-  myPID.SetSampleTime(10);
-  //Serial1.print("Setup Complete");
-  //Serial1.println();
+  myPID.SetSampleTime(25);
+
+  jogPID.SetMode(AUTOMATIC);
+  jogPID.SetOutputLimits(0, 4095);
+  jogPID.SetSampleTime(25);
+
+  
   Serial1.println("Setpoint,Input");
+  Serial.println("Setpoint,Input");
+  Serial.println(Setpointj);
+  Serial.print("Setup complete");
+}
+
+double GetCylinderExtension()
+{
+  double stringGaugeRaw, stringGauge;
+  stringGaugeRaw = adcOne.readADC_SingleEnded(3);
+  //maps cylinder extension from 0 - 35.75"
+  stringGauge= map(stringGaugeRaw, 800,24000, 0, 35750); //maps cylinder extension from 0 - 35750mils"
+  stringGauge = stringGauge/1000.0;//converts to inches
+  return stringGauge;
 }
 
 void loop()
 {
-  ToDisplay();
-  InputRaw = adcOne.readADC_SingleEnded(0);
-  Input = map(InputRaw, zeroPoint, fromHigh, 0, upperLimit);
-  Input1Raw = adcOne.readADC_SingleEnded(1);
-  Input2Raw = adcOne.readADC_SingleEnded(2);
-  Input3Raw = adcOne.readADC_SingleEnded(3);
-  
-  Input1= map(Input1Raw, 0, fromHigh, 0, upperLimit);
-  
-  //Pressure = ads.readADC_SingleEnded(1);
-  //Pressure1 = ads.readADC_SingleEnded(2);
-  myPID.Compute();
-  if (!JogMode) {
-    analogWrite(DAC0, Output);
+  if(JogMode){
+    //ToDisplayJ();
+    Inputj = GetCylinderExtension();
+    jogPID.Compute();
+    analogWrite(DAC0,Outputj);
+
+    unsigned long currentMillis = millis();
+    if (currentMillis - previousMillis >= interval) {
+    previousMillis = currentMillis;
+    Serial1.print(Setpointj);
+    Serial1.print( ",");
+    Serial1.println(Inputj);
+    Serial.print(Setpointj);
+    Serial.print( ",");
+    Serial.println(Inputj);
   }
+  }
+  else{
+    //ToDisplay();
+    InputRaw = adcOne.readADC_SingleEnded(0);
+    Input = map(InputRaw, zeroPoint, fromHigh, 0, upperLimit);
+    myPID.Compute();
+    analogWrite(DAC0, Output);
+  
 
 
   //posts to mqtt every 500 ms also checks for failure
   unsigned long currentMillis = millis();
   double forceDifferential;
+  
+  
   
   if (currentMillis - previousMillis >= interval) {
     previousMillis = currentMillis;
@@ -129,15 +158,19 @@ void loop()
     Serial1.print(Setpoint);
     Serial1.print( ",");
     Serial1.println(Input);
+    Serial.print(Setpoint);
+    Serial.print( ",");
+    Serial.println(Input);
+  
+  if (abs((Input-forceDifferential)/forceDifferential) > failurePercent){
+    Serial1.println("Failure Detected Switched to Jog Mode");
+    JogMode = true;
+    Setpointj = GetCylinderExtension();
+  }
   }
 
- if ((Input/forceDifferential) < failurePercent){
-  Serial1.println("Failure Detected Shutting Off Pump");
-  digitalWrite(2, LOW);
- }
   
-  
-}
+ }}
 
 
 void printHelp()
@@ -201,35 +234,38 @@ void parseInput()
       break;
     // Stops the hydraulic pump
     case 's':
-      Serial1.println("Shutting off pump");
+      Serial.println("Shutting off pump");
       digitalWrite(2, LOW);
       break;
 
     // Enables the hydraulic pump
     case 'g':
-      Serial1.println("Hydraulic pump set to go");
+      Serial.println("Hydraulic pump set to go");
       digitalWrite(2, HIGH);
       break;
 
-    // Jogs the piston in the compressive direction
+    // Enables Force Mode
     case 'c':
-      Serial1.println("testing jog in compressive direction");
-      myPID.SetMode(MANUAL);
-      JogMode = true;
-      analogWrite(DAC0, 1548);
+      Serial.println("Enabling Force Pid");
+      jogPID.SetMode(MANUAL);
+      JogMode = false;
+      myPID.SetMode(AUTOMATIC);
+      InputRaw = adcOne.readADC_SingleEnded(0);
+      Setpoint = map(InputRaw, zeroPoint, fromHigh, 0, upperLimit);
       break;
 
-    // Jogs the piston in the tensile direction
-    case 't':
-      Serial1.println("Testing Jog tenisle direction");
+    // Enables Jog Mode
+    case 'j':
+      Serial.println("JogMode enabled");
       myPID.SetMode(MANUAL);
       JogMode = true;
-      analogWrite(DAC0, 2400);
+      jogPID.SetMode(AUTOMATIC);
+      Setpointj = GetCylinderExtension();
       break;
 
     //holds the pid at current force value
     case 'h':
-      Serial1.println("testing holf");
+      Serial1.println("testing hold");
       Setpoint = Input;
       myPID.SetMode(AUTOMATIC);
       JogMode = false;
@@ -251,10 +287,16 @@ void parseInput()
       break;
     case 'f':
       substr = inputString.substring(1);
-      Setpoint = substr.toDouble();
-      
+      if (JogMode){
+        Setpointj = substr.toDouble();
+      }
+      else{
+        Setpoint = substr.toDouble();
+      }
       Serial1.print("Setpoint:");
       Serial1.println(Setpoint);
+      Serial.print("Setpoint:");
+      Serial.println(Setpoint);
       break;
     default:
       Serial1.println(inputString);
@@ -265,17 +307,17 @@ void parseInput()
 }
 
 /*
-  Serial1Event occurs whenever a new data comes in the
+  SerialEvent1 occurs whenever a new data comes in the
   hardware Serial1 RX.  This routine is run between each
   time loop() runs, so using delay inside loop can delay
   response.  Multiple bytes of data may be available.
 */
-void serialEvent1()
+void serialEvent()
 {
-  while (Serial1.available())
+  while (Serial.available())
   {
     // get the new byte:
-    char inChar = (char)Serial1.read();
+    char inChar = (char)Serial.read();
     //    Serial1.print((int)inChar);
     // add it to the inputString:
     inputString += inChar;
@@ -300,9 +342,10 @@ double smoothed(int numReadings)
   return averaged;
 }
 
-  void ToDisplay(){
+
+void ToDisplay(){
     display.clearDisplay();
-    
+
     display.setCursor(0,0);
     display.print("SP:");
     display.println(Setpoint,0);
@@ -315,7 +358,28 @@ double smoothed(int numReadings)
     display.println(ki);
     display.print("D:");
     display.println(kd);
+    display.print(JogMode);
     display.display();
     
    
-  }
+}
+void ToDisplayJ(){
+    display.clearDisplay();
+   
+    display.setCursor(0,0);
+    display.print("SP:");
+    display.println(Setpointj,0);
+    display.print("PV:");
+    display.println(Inputj,0);
+    display.println("");    
+    display.print("P:");
+    display.println(kpj);
+    display.print("I:");
+    display.println(kij);
+    display.print("D:");
+    display.println(kdj);
+    display.print(JogMode);
+    display.display();
+    
+   
+}

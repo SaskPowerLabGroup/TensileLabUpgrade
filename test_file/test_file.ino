@@ -56,7 +56,46 @@ GetCylinderExtension();
 Input = stringGauge;
 Setpoint = Input;
 }
-
+void ToDisplay()
+    {
+    display.clearDisplay();
+    
+    display.setCursor(0,0);
+    display.print("0:");
+    display.println(loadCellRaw,0);
+    display.print("1:");
+    display.print(pressureT,0);
+    display.println("psi");
+    display.print("2:");
+    display.print(pressureC,0);
+    display.println("psi");
+    display.print("3:");
+    display.print(stringGauge,1);
+    display.println("in");
+    display.display();
+    }  
+void GetPressure()
+{
+pressureTRaw = adcOne.readADC_SingleEnded(1);// read channel 1
+pressureCRaw = adcOne.readADC_SingleEnded(2);// read channel 2
+//map pressure sensors 1-5 Volts to 0 to 5000 psi
+if (pressureTRaw < 8000) pressureT = 0; //8000 represents 1 volt. This line eliminates negative numbers toggling around zero psi.
+else pressureT= map(pressureTRaw, 8000,40000, 0, 5000);//sensor outputs 1-5 volts over 0 - 5000PSI
+if (pressureCRaw < 8000) pressureC = 0; //8000 represents 1 volt. This line eliminates negative numbers toggling around zero psi.
+else pressureC= map(pressureCRaw, 8000,40000, 0, 5000);//sensor outputs 1-5 volts over 0 - 5000PSI   
+}
+void GetCylinderExtension()
+{
+  stringGaugeRaw = adcOne.readADC_SingleEnded(3);
+  //maps cylinder extension from 0 - 35.75"
+  stringGauge= map(stringGaugeRaw, 800,24000, 0, 35750); //maps cylinder extension from 0 - 35750mils"
+  stringGauge = stringGauge/1000.0;//converts to inches
+}
+void GetLoadCell()
+{
+  loadCellRaw = adcOne.readADC_SingleEnded(0);
+  loadCell= map(loadCellRaw, 0,32767, 0, 50000);
+}
 void loop() {
   // put your main code here, to run repeatedly:
 GetPressure();
@@ -236,44 +275,4 @@ void serialEvent1()
       parseInput();
     }
   }
-}
-void ToDisplay()
-    {
-    display.clearDisplay();
-    
-    display.setCursor(0,0);
-    display.print("0:");
-    display.println(loadCellRaw,0);
-    display.print("1:");
-    display.print(pressureT,0);
-    display.println("psi");
-    display.print("2:");
-    display.print(pressureC,0);
-    display.println("psi");
-    display.print("3:");
-    display.print(stringGauge,1);
-    display.println("in");
-    display.display();
-    }  
-void GetPressure()
-{
-pressureTRaw = adcOne.readADC_SingleEnded(1);// read channel 1
-pressureCRaw = adcOne.readADC_SingleEnded(2);// read channel 2
-//map pressure sensors 1-5 Volts to 0 to 5000 psi
-if (pressureTRaw < 8000) pressureT = 0; //8000 represents 1 volt. This line eliminates negative numbers toggling around zero psi.
-else pressureT= map(pressureTRaw, 8000,40000, 0, 5000);//sensor outputs 1-5 volts over 0 - 5000PSI
-if (pressureCRaw < 8000) pressureC = 0; //8000 represents 1 volt. This line eliminates negative numbers toggling around zero psi.
-else pressureC= map(pressureCRaw, 8000,40000, 0, 5000);//sensor outputs 1-5 volts over 0 - 5000PSI   
-}
-void GetCylinderExtension()
-{
-  stringGaugeRaw = adcOne.readADC_SingleEnded(3);
-  //maps cylinder extension from 0 - 35.75"
-  stringGauge= map(stringGaugeRaw, 800,24000, 0, 35750); //maps cylinder extension from 0 - 35750mils"
-  stringGauge = stringGauge/1000.0;//converts to inches
-}
-void GetLoadCell()
-{
-  loadCellRaw = adcOne.readADC_SingleEnded(0);
-  loadCell= map(loadCellRaw, 0,32767, 0, 50000);
 }

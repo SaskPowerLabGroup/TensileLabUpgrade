@@ -70,13 +70,14 @@ void callback(char* topic, byte *payload, unsigned int length) {
 }
 
 void setup() {
-  Serial.begin(115200);
-  Serial2.begin(115200, SERIAL_8N1, RXD2, TXD2);
+  Serial.begin(9600);
+  Serial2.begin(9600, SERIAL_8N1, RXD2, TXD2);
   Serial.setTimeout(500);// Set time out for 
   setup_wifi();
   client.setServer(mqtt_server, mqtt_port);
   client.setCallback(callback);
   reconnect();
+  Serial.print("Callback Complete");
 }
 
 // This is all that is required to publish to mqtt
