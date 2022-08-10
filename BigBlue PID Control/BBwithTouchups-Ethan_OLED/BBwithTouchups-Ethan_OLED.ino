@@ -16,19 +16,15 @@
 #include <PID_v1.h>
 #include <Adafruit_ADS1X15.h>
 #include <Adafruit_SSD1306.h>
-//Include when using the ADC ADS1115
-Adafruit_ADS1115 adcOne;
-
-
-//#define PIN_OUTPUT 8
-//#define PIN_PWM 9
-//#define PIN_DIR 8
-
-#include <Adafruit_SSD1306.h>
 #define OLED_RESET 13  // D13 on DUE
-Adafruit_SSD1306 display(OLED_RESET);
 #define PIN_SETPOINT A0
 #define PIN_INPUT A2
+
+
+//Include when using the ADC ADS1115
+Adafruit_ADS1115 adcOne;
+Adafruit_SSD1306 display(OLED_RESET);
+
 
 //Percentage drop in 0.5s that defines a failure
 double failurePercent = 0.60; 
@@ -57,6 +53,16 @@ bool JogMode = true;
 //PID myPID(&Input, &Output, &Setpoint, kp, ki, kd, DIRECT);
 PID myPID(&Input, &Output, &Setpoint,kp,ki,kd,P_ON_M, DIRECT);
 PID jogPID(&Inputj, &Outputj, &Setpointj,kpj,kij,kdj,P_ON_M, REVERSE);
+
+double GetCylinderExtension()
+{
+  double stringGaugeRaw, stringGauge;
+  stringGaugeRaw = adcOne.readADC_SingleEnded(3);
+  //maps cylinder extension from 0 - 35.75"
+  stringGauge= map(stringGaugeRaw, 800,24000, 0, 35750); //maps cylinder extension from 0 - 35750mils"
+  stringGauge = stringGauge/1000.0;//converts to inches
+  return stringGauge;
+}
 
 void setup()
 {
@@ -89,8 +95,8 @@ digitalWrite(2, LOW);
   adcOne.setGain(GAIN_ONE);
   adcOne.setDataRate(RATE_ADS1115_128SPS);
   Setpoint = 1000;
-
-
+  Setpointj = GetCylinderExtension();
+  
   //turn the PID on
 
   myPID.SetMode(MANUAL);
@@ -106,16 +112,6 @@ digitalWrite(2, LOW);
   Serial.println("Setpoint,Input");
   Serial.println(Setpointj);
   Serial.print("Setup complete");
-}
-
-double GetCylinderExtension()
-{
-  double stringGaugeRaw, stringGauge;
-  stringGaugeRaw = adcOne.readADC_SingleEnded(3);
-  //maps cylinder extension from 0 - 35.75"
-  stringGauge= map(stringGaugeRaw, 800,24000, 0, 35750); //maps cylinder extension from 0 - 35750mils"
-  stringGauge = stringGauge/1000.0;//converts to inches
-  return stringGauge;
 }
 
 void loop()
@@ -265,18 +261,35 @@ void parseInput()
 
     //holds the pid at current force value
     case 'h':
-      Serial1.println("testing hold");
-      Setpoint = Input;
-      myPID.SetMode(AUTOMATIC);
-      JogMode = false;
+      Serial.println("JogMode enabled");
+      myPID.SetMode(MANUAL);
+      JogMode = true;
+      jogPID.SetMode(AUTOMATIC);
+      Setpointj = GetCylinderExtension();
       break;
 
+    //extends piston cylinder
+    case 'e':
+      myPID.SetMode(MANUAL);
+      jogPID.SetMode(MANUAL);
+      analogWrite(DAC0,2548);
+      break;
+      
+    // retracts piston cylinder
+    case 'r':
+      myPID.SetMode(MANUAL);
+      jogPID.SetMode(MANUAL);
+      analogWrite(DAC0,1548);
+      break;
+      
+        
     // Zeros the Force value
     case 'z':
-      Serial1.println("Zero Testing");
+      Serial.println("Zero");
       zeroPoint = InputRaw;
       Setpoint = 0;
       break;
+      
     case 'm':
       substr = inputString.substring(1);
       upperLimit = substr.toDouble();
@@ -285,6 +298,7 @@ void parseInput()
     case '\n':
       printHelp();
       break;
+      
     case 'f':
       substr = inputString.substring(1);
       if (JogMode){
@@ -293,10 +307,6 @@ void parseInput()
       else{
         Setpoint = substr.toDouble();
       }
-      Serial1.print("Setpoint:");
-      Serial1.println(Setpoint);
-      Serial.print("Setpoint:");
-      Serial.println(Setpoint);
       break;
     default:
       Serial1.println(inputString);
@@ -318,7 +328,6 @@ void serialEvent()
   {
     // get the new byte:
     char inChar = (char)Serial.read();
-    //    Serial1.print((int)inChar);
     // add it to the inputString:
     inputString += inChar;
     // if the incoming character is a newline, set a flag
@@ -358,11 +367,10 @@ void ToDisplay(){
     display.println(ki);
     display.print("D:");
     display.println(kd);
-    display.print(JogMode);
+    display.print("Force Mode");
     display.display();
-    
-   
 }
+
 void ToDisplayJ(){
     display.clearDisplay();
    
@@ -378,8 +386,6 @@ void ToDisplayJ(){
     display.println(kij);
     display.print("D:");
     display.println(kdj);
-    display.print(JogMode);
+    display.print("Jog Mode");
     display.display();
-    
-   
 }
