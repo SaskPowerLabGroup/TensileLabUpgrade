@@ -32,12 +32,12 @@ double pressureT = 0;
 double pressureC = 0;
 
 //Percentage drop in 0.5s that defines a failure
+//This feature is still broken
 double failurePercent = 1; 
 
 //Timer variables
 unsigned long previousMillis = 0;
 const long interval = 500;
-double forceDifferential;
 
 //Define Variables we'll be connecting to
 double Setpoint, Input, Output;
@@ -54,8 +54,11 @@ double zeroPoint = 20422; //Around 2.55 volts from the load cell converter or th
 double fromHigh = 0;
 //double upperLimit = 253000;//0 volts out of load cell converter would represent 253000 LBS Tension
 double upperLimit = 259135;
-bool JogMode = true;
+bool jogMode = true;
 bool manualJog = false;
+bool failureDetectionOn = true;
+double jogLimit = 750;
+double peakLoad = 0;
 
 //PID myPID(&Input, &Output, &Setpoint, kp, ki, kd, DIRECT);
 PID myPID(&Input, &Output, &Setpoint,kp,ki,kd,P_ON_M, DIRECT);
@@ -112,14 +115,13 @@ digitalWrite(2, LOW);
 
   myPID.SetMode(MANUAL);
   myPID.SetOutputLimits(1548, 2548);
-  myPID.SetSampleTime(25);
+  myPID.SetSampleTime(50);
 
   jogPID.SetMode(AUTOMATIC);
   jogPID.SetOutputLimits(0, 4095);
-  jogPID.SetSampleTime(25);
+  jogPID.SetSampleTime(50);
 
-  
-  Serial1.println("Setpoint,Input");
+ 
   Serial.println("Setpoint,Input");
   Serial.println(Setpointj);
   Serial.println("Setup complete");
@@ -136,7 +138,6 @@ void loop()
   unsigned long currentMillis = millis();
   if (currentMillis - previousMillis >= interval) {
     previousMillis = currentMillis;
-    forceDifferential = Input;
     Serial1.print(Setpointj);
     Serial1.print( ",");
     Serial1.print(Inputj);
@@ -162,7 +163,20 @@ void loop()
     Serial.println(pressureC);
     
 }
-  if(JogMode){
+  if(Input>peakLoad){
+    peakLoad = Input;
+  }
+
+  if((jogMode || manualJog)&&(abs(Input) > 750)){
+    manualJog = false;
+    jogMode = false;
+    Setpoint = Input;
+    jogPID.SetMode(MANUAL);
+    myPID.SetMode(AUTOMATIC);
+    Serial.print("Jog limit reached switching to force mode");
+  }
+  
+  if(jogMode){
     jogPID.Compute();
     if(!manualJog){
       analogWrite(DAC0,Outputj);
@@ -173,6 +187,20 @@ void loop()
     if(!manualJog){
       analogWrite(DAC0,Output);
     }
+    if((abs(Input)<(peakLoad*0.3))&&failurDectectionOn){
+      Setpointj = Inputj;
+      jogMode = true;
+      Serial1.print("Max Load: ");
+      Serial1.print(peakLoad);
+      Serial.print(" lbs");
+      peakLoad = 0;
+      myPID.SetMode(MANUAL);
+      jogPID.SetMode(AUTOMATIC);
+      Serial.println("Failure Detected");
+      Serial.println("Shutting off pump");
+      digitalWrite(2, LOW);
+    }
+      
   }}
 
 
@@ -226,9 +254,6 @@ void parseInput()
 
     case 'd':
       substr = inputString.substring(1);
-      //      dGain = substr.toInt();
-      //      Serial1.print("Kd:");
-      //      Serial1.println(dGain);
       kd = substr.toDouble();
       Serial.print("Kd:");
       Serial.println(kd);
@@ -244,6 +269,10 @@ void parseInput()
     // Enables the hydraulic pump
     case 'g':
       Serial.println("Hydraulic pump set to go");
+      myPID.SetMode(MANUAL);
+      jogMode = true;
+      jogPID.SetMode(AUTOMATIC);
+      Setpointj = Inputj;
       digitalWrite(2, HIGH);
       break;
 
@@ -251,30 +280,33 @@ void parseInput()
     case 'c':
       Serial.println("Enabling Force Pid");
       jogPID.SetMode(MANUAL);
-      JogMode = false;
+      jogMode = false;
       myPID.SetMode(AUTOMATIC);
       InputRaw = adcOne.readADC_SingleEnded(0);
       manualJog = false;
       Setpoint = map(InputRaw, zeroPoint, fromHigh, 0, upperLimit);
+      failureDetectionOn = true;
       break;
 
     // Enables Jog Mode
     case 'j':
-      Serial.println("JogMode enabled");
+      Serial.println("jogMode enabled");
       myPID.SetMode(MANUAL);
-      JogMode = true;
+      jogMode = true;
       jogPID.SetMode(AUTOMATIC);
       manualJog = false;
+      failureDetectionOn = false;
       Setpointj = GetCylinderExtension();
       break;
 
     //holds the pid at current force value
     case 'h':
-      Serial.println("JogMode enabled, holding position");
+      Serial.println("jogMode enabled, holding position");
       myPID.SetMode(MANUAL);
-      JogMode = true;
+      jogMode = true;
       jogPID.SetMode(AUTOMATIC);
       manualJog = false;
+      failureDetectionOn = false;
       Setpointj = GetCylinderExtension();
       break;
 
@@ -285,6 +317,7 @@ void parseInput()
       myPID.SetMode(MANUAL);
       jogPID.SetMode(MANUAL);
       analogWrite(DAC0,2548);
+      failureDetectionOn = false;
       break;
       
     // retracts piston cylinder
@@ -293,6 +326,7 @@ void parseInput()
       myPID.SetMode(MANUAL);
       jogPID.SetMode(MANUAL);
       analogWrite(DAC0,1548);
+      failureDetectionOn = false;
       break;
       
         
@@ -311,14 +345,27 @@ void parseInput()
     case '\n':
       printHelp();
       break;
-      
+
+    case 'l':
+      peakLoad = 0;
+      break;
+       
     case 'f':
       substr = inputString.substring(1);
-      if (JogMode){
+      if (jogMode){
         Setpointj = substr.toDouble();
       }
       else{
         Setpoint = substr.toDouble();
+        if(Setpoint < Input){
+          peakLoad = Setpoint;
+          failureDetectionOn = false;
+        else{
+          peakLoad = Input;
+          failureDectectionOn = true;
+        }
+          
+        }
       }
       break;
     default:
@@ -379,7 +426,7 @@ void ToDisplay(){
     display.print("PVJ");
     display.println(Inputj);
     display.println("");
-    if(JogMode){
+    if(jogMode){
       display.print("Jog Mode");
     }
     else{
