@@ -9,8 +9,8 @@ const char* mqtt_server = "192.168.50.10";
 #define mqtt_port 1883
 #define MQTT_USER "username"
 #define MQTT_PASSWORD "password"
-#define MQTT_SERIAL_PUBLISH_CH "bigBertha"
-#define MQTT_SERIAL_RECEIVER_CH "bigBertha/inputs"
+#define MQTT_SERIAL_PUBLISH_CH "big_bertha"
+#define MQTT_SERIAL_RECEIVER_CH "big_bertha/inputs"
 #define RXD2 16
 #define TXD2 17
 

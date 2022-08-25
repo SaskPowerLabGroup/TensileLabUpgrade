@@ -44,9 +44,9 @@ def terminate():
 def connect():
     """Attempts to the MQTT broker""" 
     try:
-        mqttClient.connect("192.168.7.1")
-        mqttClient.subscribe("stringGauge/inputs")
-        mqttClient.subscribe("stringGauge/connection")
+        mqttClient.connect("192.168.50.10")
+        mqttClient.subscribe("string_gauge/inputs")
+        mqttClient.subscribe("string_gauge/connection")
         mqttClient.loop_start()
     except:
         print("Couldnt Connect")
@@ -87,14 +87,14 @@ def update():
 
     post = marginally_different(variable)
     
-    if (not Disconnected) and recording.get() and post:
-        mqttClient.publish("stringGauge/recording",formatted)
+    if (not Disconnected) and post:
+        mqttClient.publish("string_gauge",formatted)
 
 
     if not Disconnected:
         checkcycles += 1
         if checkcycles == 100:
-            mqttClient.publish("stringGauge/connection","connected")
+            mqttClient.publish("string_gauge/connection","connected")
             print("Attempting to send da message")
         elif checkcycles == 200:
             checkcycles = 0
@@ -180,15 +180,8 @@ terminateButton = Button(main, command = terminate, text = "X")
 terminateButton.config(font=("Helvetica",20))
 terminateButton.place(x=0,y=0)
 
-#Record Data Swtich
-recording = BooleanVar(main)
-recording.set(True)
-recordValues = Checkbutton(main, text="Record Data", variable=recording)
-recordValues.place(relx=0.70,rely=0.9)
-recordValues.config(font=("Helvetica",20))
-
 #mqtt things
-mqttClient = mqtt.Client("stringGauge")
+mqttClient = mqtt.Client("string_gauge")
 mqttClient.on_message = on_message
 mqttClient.on_disconnect = on_disconnect
 mqttClient.on_connect = on_connect
