@@ -1,19 +1,5 @@
-
-/*Jan 4 2022
-   Added analogWriteResolution(12) to setup
-   Added analogWrite dac0,2048 to set valve to zero volts
-   Changed variable name InputMapped to InputRaw to reflect it is in A2D counts
-   Changed upper limit to 253000 LBS @ 0 Volts to represent LBS.  Was running in Kg.
-
-
-
-
-/* Features still needed: 
- *  Some way to detect failure
- *  Way to run pid off of the phidget gague mounted on the back
- */
-
 #include <PID_v1.h>
+#include <EEPROM.h>
 #include <Adafruit_ADS1X15.h>
 #include <Adafruit_SSD1306.h>
 #define OLED_RESET 13  // D13 on DUE
@@ -31,11 +17,10 @@ double pressureCRaw = 0;
 double pressureT = 0;
 double pressureC = 0;
 
-//Percentage drop in 0.5s that defines a failure
-//This feature is still broken
-double failurePercent = 1; 
+//Percentage drop from peak that defines a failure
+double failurePercent = 70; 
 
-//Timer variables
+//Timer variables. Set interval to how often the force is sent to the database
 unsigned long previousMillis = 0;
 const long interval = 500;
 
@@ -50,10 +35,14 @@ double kpj = 10000, kij = 8000, kdj = 0;
 
 //Mappping Values
 double InputRaw = 0;
-double zeroPoint = 20422; //Around 2.55 volts from the load cell converter or the zero point
+double zeroPoint = 20422;
+EEPROM.get(0, zeroPoint);
+ //Around 2.55 volts from the load cell converter or the zero point
+ //double upperLimit = 253000;//0 volts out of load cell converter would represent 253000 LBS Tension
 double fromHigh = 0;
-//double upperLimit = 253000;//0 volts out of load cell converter would represent 253000 LBS Tension
 double upperLimit = 259135;
+
+
 bool jogMode = true;
 bool manualJog = false;
 bool failureDetectionOn = true;
@@ -64,6 +53,29 @@ double peakLoad = 0;
 PID myPID(&Input, &Output, &Setpoint,kp,ki,kd,P_ON_M, DIRECT);
 PID jogPID(&Inputj, &Outputj, &Setpointj,kpj,kij,kdj,P_ON_M, REVERSE);
 
+void ToDisplay(){
+  // updates the mini display on the due
+    display.clearDisplay();
+
+    display.setCursor(0,0);
+    display.print("SPF:");
+    display.println(Setpoint,0);
+    display.print("PVF:");
+    display.println(Input,0);   
+    display.print("SPJ");
+    display.println(Setpointj);
+    display.print("PVJ");
+    display.println(Inputj);
+    display.println("");
+    if(jogMode){
+      display.print("Jog Mode");
+    }
+    else{
+      display.print("Force Mode");
+    }
+    display.display();
+}
+
 double GetCylinderExtension()
 {
   double stringGaugeRaw, stringGauge;
@@ -73,6 +85,7 @@ double GetCylinderExtension()
   stringGauge = stringGauge/1000.0;//converts to inches
   return stringGauge;
 }
+
 void GetPressure()
 {
 pressureTRaw = adcOne.readADC_SingleEnded(1);// read channel 1
@@ -83,8 +96,10 @@ else pressureT= map(pressureTRaw, 8000,40000, 0, 5000);//sensor outputs 1-5 volt
 if (pressureCRaw < 8000) pressureC = 0; //8000 represents 1 volt. This line eliminates negative numbers toggling around zero psi.
 else pressureC= map(pressureCRaw, 8000,40000, 0, 5000);//sensor outputs 1-5 volts over 0 - 5000PSI   
 }
+
 void setup()
 {
+//initializes hardware and data speeds
 Serial.begin(9600);
 Serial.println("Setup Initalized");
 Serial1.begin(9600);
@@ -107,11 +122,11 @@ digitalWrite(2, LOW);
   }
 
   adcOne.setGain(GAIN_ONE);
-  adcOne.setDataRate(RATE_ADS1115_128SPS);
+  adcOne.setDataRate(RATE_ADS1115_16SPS);
   Setpoint = 1000;
   Setpointj = GetCylinderExtension();
   
-  //turn the PID on
+  //turn the PIDs on
 
   myPID.SetMode(MANUAL);
   myPID.SetOutputLimits(1548, 2548);
@@ -129,12 +144,15 @@ digitalWrite(2, LOW);
 
 void loop()
 {
+  //updates pressure, piston location and load variables
   GetPressure();
   Inputj = GetCylinderExtension();
   InputRaw = adcOne.readADC_SingleEnded(0);
   Input = map(InputRaw, zeroPoint, fromHigh, 0, upperLimit);
   ToDisplay();
   
+  //posts to serial and serial1 main information
+  //make posting a function and this will look alot cleaner
   unsigned long currentMillis = millis();
   if (currentMillis - previousMillis >= interval) {
     previousMillis = currentMillis;
@@ -148,7 +166,9 @@ void loop()
     Serial1.print(",");
     Serial1.print(pressureT);
     Serial1.print( ",");
-    Serial1.println(pressureC);
+    Serial1.print(pressureC);
+    Serial1.print( ",");
+    Serial1.println(jogMode);
 
     Serial.print(Setpointj);
     Serial.print( ",");
@@ -161,38 +181,44 @@ void loop()
     Serial.print(pressureT);
     Serial.print( ",");
     Serial.println(pressureC);
+    Serial1.println(jogMode);
     
 }
+  //updates peak load for failure detection
   if(Input>peakLoad){
     peakLoad = Input;
   }
 
-  if((jogMode || manualJog)&&(abs(Input) > 750)){
+  //creates jog limit = the joglimit variable
+  if((jogMode || manualJog)&&(abs(Input) > jogLimit)){
     manualJog = false;
     jogMode = false;
     Setpoint = Input;
     jogPID.SetMode(MANUAL);
     myPID.SetMode(AUTOMATIC);
-    Serial.print("Jog limit reached switching to force mode");
+    Serial.print("Important Jog limit reached switching to force mode");
   }
   
+  //main jog mode PID
   if(jogMode){
     jogPID.Compute();
     if(!manualJog){
       analogWrite(DAC0,Outputj);
     }
   }
+  //main force PID
   else{
     myPID.Compute();
     if(!manualJog){
       analogWrite(DAC0,Output);
     }
-    if((abs(Input)<(peakLoad*0.3))&&failurDectectionOn){
+    //checks value against peak load and checks if failure has occured
+    if((abs(Input)<(peakLoad*(1-failurePercent)))&&failureDetectionOn){
       Setpointj = Inputj;
       jogMode = true;
-      Serial1.print("Max Load: ");
+      Serial1.print("Important Max Load: ");
       Serial1.print(peakLoad);
-      Serial.print(" lbs");
+      Serial.println(" lbs");
       peakLoad = 0;
       myPID.SetMode(MANUAL);
       jogPID.SetMode(AUTOMATIC);
@@ -202,26 +228,6 @@ void loop()
     }
       
   }}
-
-
-void printHelp()
-{
-  Serial.print( "setpoint:");
-  Serial.println( Setpoint );
-
-  Serial.print( "p:");
-  Serial.println( kp );
-
-  Serial.print( "i:");
-  Serial.println( ki );
-
-  Serial.print( "d:");
-  Serial.println( kd );
-
-  Serial.println();
-}
-
-
 
 
 String       inputString = "";         // a string to hold incoming data
@@ -299,7 +305,7 @@ void parseInput()
       Setpointj = GetCylinderExtension();
       break;
 
-    //holds the pid at current force value
+    //holds the pid at current position
     case 'h':
       Serial.println("jogMode enabled, holding position");
       myPID.SetMode(MANUAL);
@@ -310,7 +316,7 @@ void parseInput()
       Setpointj = GetCylinderExtension();
       break;
 
-    //extends piston cylinder
+    //retracts piston cylinder
     case 'r':
       Serial.println("Retracting Piston");
       manualJog = true;
@@ -320,7 +326,7 @@ void parseInput()
       failureDetectionOn = false;
       break;
       
-    // retracts piston cylinder
+    //extends piston cylinder
     case 'e':
       manualJog = true;
       myPID.SetMode(MANUAL);
@@ -334,6 +340,7 @@ void parseInput()
     case 'z':
       Serial.println("Zero");
       zeroPoint = InputRaw;
+      EEPROM.put(0, zeroPoint);
       Setpoint = 0;
       break;
       
@@ -341,9 +348,6 @@ void parseInput()
       substr = inputString.substring(1);
       upperLimit = substr.toDouble();
       fromHigh = InputRaw;
-      break;
-    case '\n':
-      printHelp();
       break;
 
     case 'l':
@@ -360,14 +364,13 @@ void parseInput()
         if(Setpoint < Input){
           peakLoad = Setpoint;
           failureDetectionOn = false;
+        }
         else{
           peakLoad = Input;
-          failureDectectionOn = true;
-        }
-          
-        }
-      }
+          failureDetectionOn = true;
+        }}
       break;
+   
     default:
       Serial.println(inputString);
       Serial.println("Error: Shutting off pump");
@@ -383,7 +386,7 @@ void parseInput()
   response.  Multiple bytes of data may be available.
 */
 void serialEvent1()
-{
+{//writes serial data to a readable character array
   while (Serial1.available())
   {
     // get the new byte:
@@ -397,40 +400,4 @@ void serialEvent1()
     }
   }
   Serial.println(inputString);
-}
-double smoothed(int numReadings)
-{
-  // forces value to be returned as an integer
-  int averaged;
-
-  // Averages the anoalog input numReadings amount of times
-  double total = 0;
-  for (int i = 0; i < numReadings ; i++) {
-    total = total + adcOne.readADC_SingleEnded(0);
-  }
-  averaged = total / numReadings;
-  return averaged;
-}
-
-
-void ToDisplay(){
-    display.clearDisplay();
-
-    display.setCursor(0,0);
-    display.print("SPF:");
-    display.println(Setpoint,0);
-    display.print("PVF:");
-    display.println(Input,0);   
-    display.print("SPJ");
-    display.println(Setpointj);
-    display.print("PVJ");
-    display.println(Inputj);
-    display.println("");
-    if(jogMode){
-      display.print("Jog Mode");
-    }
-    else{
-      display.print("Force Mode");
-    }
-    display.display();
 }
