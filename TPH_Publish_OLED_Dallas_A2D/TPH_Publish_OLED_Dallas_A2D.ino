@@ -1,3 +1,4 @@
+//Code for Wemos D1 Mini ESP32
 #include <Adafruit_SSD1306.h>
 #include <Adafruit_ADS1X15.h>
 Adafruit_ADS1115 adcOne;
@@ -27,12 +28,14 @@ char msg[50];
 int value = 0;
 ClosedCube_SHT31D sht3xd;
 Adafruit_BMP085 bmp;
-float temperature = 0;
-float humidity = 0;
-float pressure = 0;
-long a2dRead = 0;
-long voltage = 0;
-float kvolt = 0;
+double temperature = 19.0;
+double humidity = 21.1;
+double pressure = 950.1;
+double a2dReadV = 0;
+double a2dReadC = 0;
+double voltage = 0;
+double current = 0;
+double kvolt = 0;
 const int ledPin = LED_BUILTIN;
 #define NUMFLAKES 10
 #define XPOS 0
@@ -207,7 +210,6 @@ void loop() {
     reconnect();
   }
   client.loop();
-  ReadVoltage();
   long now = millis();
 //if (now - lastMsg > 5000) {
   if (now - lastMsg > 1000) {  
@@ -234,13 +236,14 @@ void loop() {
       itoa(i,stri,10);
       strcat(channel,stri);
       client.publish(channel,tempStringD);
+      
     }
   }
-  
-    printResult("SHT30", sht3xd.periodicFetchData());
-    ToDisplay();
-  //delay(1000);  
-}
+  printResult("SHT30", sht3xd.periodicFetchData());
+      ReadVoltage();
+      ReadCurrent();
+      ToDisplay();
+  }
 }
 void printResult(String text, SHT31D result) {
   if (result.error == SHT3XD_NO_ERROR) {
@@ -267,22 +270,33 @@ void printResult(String text, SHT31D result) {
     dtostrf(humidity, 1, 1, tempString3);
     client.publish("esp32/humidity", tempString3);
     Serial.print("%, C=");
-    Serial.print(a2dRead);
+    Serial.print(a2dReadV);
     Serial.print("c, V=");
     Serial.print(voltage);
     Serial.print("v, kV=");
     Serial.print(kvolt);
-    Serial.println("kV");
+    Serial.print("kV,Current=");
+    Serial.print("A,READ2_3=");
+    Serial.print(a2dReadC);
+    Serial.println("c");
     
     
     
     char tempString4[10];
     dtostrf(kvolt, 1, 1, tempString4);
     client.publish("esp32/voltage", tempString4);
+    String stringV = tempString4;
+
+    char tempString5[10];
+    dtostrf(current, 1, 2, tempString5);
+    client.publish("esp32/current", tempString5);
     
+    client.publish("rts",tempString4);
    
     
-  } else {
+   }
+    
+   else {
     Serial.print(text);
     Serial.print(": [ERROR] Code #");
     Serial.println(result.error);
@@ -305,14 +319,23 @@ void printResult(String text, SHT31D result) {
     display.print("V:");
     display.print(kvolt,1);
     display.println("kV");
+    display.print("C:");
+    display.print(current,2);
+    display.println("A");
     display.display();
     
    
   }
   void ReadVoltage(){
-  a2dRead = adcOne.readADC_Differential_0_1();
-  voltage = map_float(a2dRead, 0, 31992, 0, 400000);
+  a2dReadV = adcOne.readADC_Differential_0_1();
+  voltage = map_float(a2dReadV, 0, 31992, 0, 400000);
   kvolt = voltage/1000.0;
+  }
+  void ReadCurrent(){
+  a2dReadC = adcOne.readADC_Differential_2_3();
+  current = map_float(a2dReadC, 0, 31992, 0, 2.0);
+  
+
   }
   // function to print a device address
 void printAddress(DeviceAddress deviceAddress) {
