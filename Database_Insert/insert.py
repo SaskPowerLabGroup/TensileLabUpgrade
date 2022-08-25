@@ -65,7 +65,7 @@ def on_message(client, userdata, msg):
         con.commit()
         con.close()
         end_msg = "Test Finished at: " + str(dt.now().strftime("%d/%m/%Y-%H:%M:%S"))
-        client.publish("Important","Test Finished at: " + end_msg)
+        client.publish("Important",end_msg)
         sys.exit()
     else:
         payload_data = str(msg.payload, "utf-8")
@@ -78,7 +78,7 @@ def on_connect(client,userdata,flags,rc):
     client.publish("Important", "Connected and Recording")
 
 #create sql connection and cursor object
-con = sql.connect("testlab.db")
+con = sql.connect("/home/testlab/data/labdata.db")
 cur = con.cursor()
 
 #create table for this test
