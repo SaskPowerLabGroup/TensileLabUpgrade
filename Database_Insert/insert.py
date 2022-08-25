@@ -18,6 +18,7 @@ import sqlite3 as sql
 starting_datetime = dt.now().strftime("%Y_%m_%d_%H%M%S")
 test_name = f"{sys.argv[1]}_{starting_datetime}"
 test_type = sys.argv[2]
+test_name = test_name + "_" + test_type
 
 def generate_sql(test, function, data=[]):
     """Generates strings of SQL to be executed by the cursor object
@@ -28,7 +29,7 @@ def generate_sql(test, function, data=[]):
     """
     if test == "big_bertha":
         if function == "create":
-            create_statement = "CREATE TABLE big_bertha_" + test_name + " (ID INTEGER PRIMARY KEY AUTOINCREMENT, " \
+            create_statement = "CREATE TABLE " + test_name + " (ID INTEGER PRIMARY KEY AUTOINCREMENT, " \
                                 "time DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M%f', 'NOW', 'localtime')), " \
                                 "jog_setpoint REAL, position REAL, force_setpoint INTEGER, force INTEGER, " \
                                 "pressure_t INTEGER, pressure_c INTEGER)"
@@ -39,7 +40,7 @@ def generate_sql(test, function, data=[]):
 
     elif test == "string_gauge":
         if function == "create":
-            create_statement = "CREATE TABLE string_gauge)_" + test_name + " (ID INTEGER PRIMARY KEY AUTOINCRIMENT, " \
+            create_statement = "CREATE TABLE " + test_name + " (ID INTEGER PRIMARY KEY AUTOINCREMENT, " \
                                     "time DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'localtime')), " \
                                     "displacement REAL)" 
             return create_statement
@@ -49,7 +50,7 @@ def generate_sql(test, function, data=[]):
 
     elif test == "phenix_rts":
         if function == "create":
-            create_statement = "CREATE TABLE rts_ " + test_name + " (ID INTEGER PRIMARY KEY AUTOINCREMENT, " \
+            create_statement = "CREATE TABLE " + test_name + " (ID INTEGER PRIMARY KEY AUTOINCREMENT, " \
                                     "time DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'localtime')) " \
                                     "voltage REAL, current REAL)" 
             return create_statement
