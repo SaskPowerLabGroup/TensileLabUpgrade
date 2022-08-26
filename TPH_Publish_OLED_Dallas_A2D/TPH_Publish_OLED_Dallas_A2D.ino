@@ -292,15 +292,14 @@ void printResult(String text, SHT31D result) {
     char output[24];
     char voltageString[10];
     char currentString[10];
-    dtostrf(kvolt,3,2,voltageString);
+    dtostrf(kvolt,3,1,voltageString);
     dtostrf(current,1,2,currentString);
 
     strcpy(output,voltageString);
     strcat(output,",");
     strcat(output,currentString);
   
-    strc
-    client.publish("phenix_rts",voltage);
+    client.publish("phenix_rts",output);
    
     
    }
