@@ -1,5 +1,4 @@
 #include <PID_v1.h>
-#include <EEPROM.h>
 #include <Adafruit_ADS1X15.h>
 #include <Adafruit_SSD1306.h>
 #define OLED_RESET 13  // D13 on DUE
@@ -36,7 +35,7 @@ double kpj = 10000, kij = 8000, kdj = 0;
 //Mappping Values
 double InputRaw = 0;
 double zeroPoint = 20422;
-EEPROM.get(0, zeroPoint);
+//EEPROM.get(0, zeroPoint);
  //Around 2.55 volts from the load cell converter or the zero point
  //double upperLimit = 253000;//0 volts out of load cell converter would represent 253000 LBS Tension
 double fromHigh = 0;
@@ -180,8 +179,9 @@ void loop()
     Serial.print(",");
     Serial.print(pressureT);
     Serial.print( ",");
-    Serial.println(pressureC);
-    Serial1.println(jogMode);
+    Serial.print(pressureC);
+    Serial.print( ",");
+    Serial.println(jogMode);
     
 }
   //updates peak load for failure detection
@@ -340,7 +340,7 @@ void parseInput()
     case 'z':
       Serial.println("Zero");
       zeroPoint = InputRaw;
-      EEPROM.put(0, zeroPoint);
+      //EEPROM.put(0, zeroPoint);
       Setpoint = 0;
       break;
       

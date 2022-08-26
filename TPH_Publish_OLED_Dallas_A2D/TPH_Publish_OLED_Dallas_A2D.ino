@@ -1,6 +1,7 @@
 //Code for Wemos D1 Mini ESP32
 #include <Adafruit_SSD1306.h>
 #include <Adafruit_ADS1X15.h>
+#include <string.h>
 Adafruit_ADS1115 adcOne;
 #define OLED_RESET 0  // GPIO0
 Adafruit_SSD1306 display(OLED_RESET);
@@ -80,6 +81,13 @@ static const unsigned char PROGMEM logo16_glcd_bmp[] =
 #if (SSD1306_LCDHEIGHT != 48)
 #error("Height incorrect, please fix Adafruit_SSD1306.h!");
 #endif
+
+void printAddress(DeviceAddress deviceAddress) {
+  for (uint8_t i = 0; i < 8; i++){
+    if (deviceAddress[i] < 16) Serial.print("0");
+      Serial.print(deviceAddress[i], HEX);
+  }
+}
 void setup()
 {
 Serial.begin(9600);  
@@ -281,17 +289,18 @@ void printResult(String text, SHT31D result) {
     Serial.println("c");
     
     
-    
-    char tempString4[10];
-    dtostrf(kvolt, 1, 1, tempString4);
-    client.publish("esp32/voltage", tempString4);
-    String stringV = tempString4;
+    char output[24];
+    char voltageString[10];
+    char currentString[10];
+    dtostrf(kvolt,3,2,voltageString);
+    dtostrf(current,1,2,currentString);
 
-    char tempString5[10];
-    dtostrf(current, 1, 2, tempString5);
-    client.publish("esp32/current", tempString5);
-    
-    client.publish("rts",tempString4);
+    strcpy(output,voltageString);
+    strcat(output,",");
+    strcat(output,currentString);
+  
+    strc
+    client.publish("phenix_rts",voltage);
    
     
    }
@@ -338,9 +347,3 @@ void printResult(String text, SHT31D result) {
 
   }
   // function to print a device address
-void printAddress(DeviceAddress deviceAddress) {
-  for (uint8_t i = 0; i < 8; i++){
-    if (deviceAddress[i] < 16) Serial.print("0");
-      Serial.print(deviceAddress[i], HEX);
-  }
-}
