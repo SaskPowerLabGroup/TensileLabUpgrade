@@ -51,7 +51,7 @@ def generate_sql(test, function, data=[]):
     elif test == "phenix_rts":
         if function == "create":
             create_statement = "CREATE TABLE " + test_name + " (ID INTEGER PRIMARY KEY AUTOINCREMENT, " \
-                                    "time DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'localtime')) " \
+                                    "time DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'localtime')), " \
                                     "voltage REAL, current REAL)" 
             return create_statement
         else:
@@ -79,7 +79,7 @@ def on_connect(client,userdata,flags,rc):
     client.publish("Important", "Connected and Recording")
 
 #create sql connection and cursor object
-con = sql.connect("/home/testlab/data/labdata.db")
+con = sql.connect("/srv/samba/share/data/labdata.db")
 cur = con.cursor()
 
 #create table for this test
