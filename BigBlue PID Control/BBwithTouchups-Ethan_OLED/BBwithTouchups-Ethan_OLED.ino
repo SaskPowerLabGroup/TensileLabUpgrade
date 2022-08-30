@@ -17,8 +17,8 @@ double pressureT = 0;
 double pressureC = 0;
 
 //Percentage drop from peak that defines a failure
-double failurePercent = 70; 
-
+double failurePercent = 0.70; 
+double prevForce; 
 //Timer variables. Set interval to how often the force is sent to the database
 unsigned long previousMillis = 0;
 const long interval = 500;
@@ -29,8 +29,8 @@ double Setpointj, Inputj, Outputj;
 
 //Specify the links and initial tuning parameters
 //double Kp=2, Ki=5, Kd=1;
-double kp = 1, ki = .5, kd = 0;// If running Proportional on Measurement, increasing P slows response.
-double kpj = 10000, kij = 8000, kdj = 0;
+double kp = 1.5, ki = 2, kd = 0;// If running Proportional on Measurement, increasing P slows response.
+double kpj = 3500, kij = 8000, kdj = 0;
 
 //Mappping Values
 double InputRaw = 0;
@@ -182,14 +182,22 @@ void loop()
     Serial.print(pressureC);
     Serial.print( ",");
     Serial.println(jogMode);
-    
+    Serial.println(peakLoad);
 }
   //updates peak load for failure detection
   if(Input>peakLoad){
     peakLoad = Input;
   }
-
-  //creates jog limit = the joglimit variable
+  if(Setpoint < 100){
+    Setpoint = 100;
+  }
+  if(Setpointj < 0){
+    Setpointj = 0.25;
+  }
+  else if(Setpointj > 36){
+    Setpointj = 35.75;
+  }
+  /*creates jog limit = the joglimit variable
   if((jogMode || manualJog)&&(abs(Input) > jogLimit)){
     manualJog = false;
     jogMode = false;
@@ -198,6 +206,7 @@ void loop()
     myPID.SetMode(AUTOMATIC);
     Serial.print("Important Jog limit reached switching to force mode");
   }
+  */
   
   //main jog mode PID
   if(jogMode){
@@ -213,11 +222,9 @@ void loop()
       analogWrite(DAC0,Output);
     }
     //checks value against peak load and checks if failure has occured
-    if((abs(Input)<(peakLoad*(1-failurePercent)))&&failureDetectionOn){
+    if((abs(Input)<(peakLoad*(1-failurePercent)))&&failureDetectionOn&&(prevForce > 750)){
       Setpointj = Inputj;
       jogMode = true;
-      Serial1.print("Important Max Load: ");
-      Serial1.print(peakLoad);
       Serial.println(" lbs");
       peakLoad = 0;
       myPID.SetMode(MANUAL);
@@ -226,6 +233,7 @@ void loop()
       Serial.println("Shutting off pump");
       digitalWrite(2, LOW);
     }
+    prevForce = Input;
       
   }}
 
@@ -292,6 +300,7 @@ void parseInput()
       manualJog = false;
       Setpoint = map(InputRaw, zeroPoint, fromHigh, 0, upperLimit);
       failureDetectionOn = true;
+      peakLoad = 0;
       break;
 
     // Enables Jog Mode
@@ -303,6 +312,7 @@ void parseInput()
       manualJog = false;
       failureDetectionOn = false;
       Setpointj = GetCylinderExtension();
+      peakLoad = 0;
       break;
 
     //holds the pid at current position
@@ -314,6 +324,7 @@ void parseInput()
       manualJog = false;
       failureDetectionOn = false;
       Setpointj = GetCylinderExtension();
+      peakLoad = 0;
       break;
 
     //retracts piston cylinder
@@ -328,6 +339,7 @@ void parseInput()
       
     //extends piston cylinder
     case 'e':
+      Serial.println("extending piston");
       manualJog = true;
       myPID.SetMode(MANUAL);
       jogPID.SetMode(MANUAL);
@@ -345,6 +357,7 @@ void parseInput()
       break;
       
     case 'm':
+      Serial.println("max realigned");
       substr = inputString.substring(1);
       upperLimit = substr.toDouble();
       fromHigh = InputRaw;
