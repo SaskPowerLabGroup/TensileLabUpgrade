@@ -3,7 +3,8 @@
 #include <Adafruit_ADS1X15.h>
 #include <string.h>
 Adafruit_ADS1115 adcOne;
-#define OLED_RESET 0  // GPIO0
+//#define OLED_RESET 0  // GPIO0
+#define OLED_RESET -1  // GPIO0
 Adafruit_SSD1306 display(OLED_RESET);
 //Intended for Wemos D1 mini ESP32
 //extractions from SHT3XD periodic mode and BMP085 example and https://randomnerdtutorials.com/esp32-mqtt-publish-subscribe-arduino-ide/
@@ -78,16 +79,18 @@ static const unsigned char PROGMEM logo16_glcd_bmp[] =
   B01110000, B01110000,
   B00000000, B00110000 };
 
+//#define SSD1306_LCDHEIGHT 48
 #if (SSD1306_LCDHEIGHT != 48)
+
 #error("Height incorrect, please fix Adafruit_SSD1306.h!");
 #endif
 
-void printAddress(DeviceAddress deviceAddress) {
+/*void printAddress(DeviceAddress deviceAddress) {
   for (uint8_t i = 0; i < 8; i++){
     if (deviceAddress[i] < 16) Serial.print("0");
       Serial.print(deviceAddress[i], HEX);
   }
-}
+}*/
 void setup()
 {
 Serial.begin(9600);  
@@ -96,9 +99,9 @@ sensors.begin();
   // Grab a count of devices on the wire
   numberOfDevices = sensors.getDeviceCount();  
 if (!adcOne.begin(0x48)) {
-    Serial1.println("Failed to initialize ADC One.");
+    Serial.println("Failed to initialize ADC One.");
     while (1);
-    Serial1.println("ADC 1 OK");
+    Serial.println("ADC 1 OK");
 }  
 adcOne.setGain(GAIN_FOUR);
 adcOne.setDataRate(RATE_ADS1115_8SPS);
@@ -134,6 +137,7 @@ display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
 sht3xd.begin(0x45); // I2C address: 0x44 or 0x45
 if (sht3xd.periodicStart(SHT3XD_REPEATABILITY_HIGH, SHT3XD_FREQUENCY_10HZ) != SHT3XD_NO_ERROR)
     Serial.println("[ERROR] Cannot start periodic mode on SHT30");
+sht3xd.heaterDisable();    
 if (!bmp.begin()) {
   Serial.println("Could not find a valid BMP180 sensor, check wiring!");
   while (1) {}
@@ -298,8 +302,7 @@ void printResult(String text, SHT31D result) {
     strcpy(output,voltageString);
     strcat(output,",");
     strcat(output,currentString);
-  
-    client.publish("phenix_rts",output);
+    if (kvolt > 0.5) client.publish("phenix_rts",output);
    
     
    }
@@ -315,6 +318,14 @@ void printResult(String text, SHT31D result) {
     display.clearDisplay();
     
     display.setCursor(0,0);
+    display.print("V:");
+    display.print(kvolt,1);
+    display.println("kV");
+    display.print("C:");
+    display.print(current,2);
+    display.println("A");
+    display.println("----------");
+    
     display.print("T:");
     display.print(temperature,1);
     display.println(" C");
@@ -324,25 +335,28 @@ void printResult(String text, SHT31D result) {
     display.print("H:");
     display.print(humidity,1);
     display.println(" %");
-    display.print("V:");
-    display.print(kvolt,1);
-    display.println("kV");
-    display.print("C:");
-    display.print(current,2);
-    display.println("A");
+    
+    //display.println(a2dReadV);
+    //display.println(a2dReadC);
     display.display();
     
    
   }
   void ReadVoltage(){
   a2dReadV = adcOne.readADC_Differential_0_1();
-  voltage = map_float(a2dReadV, 0, 31992, 0, 400000);
+  voltage = map_float(a2dReadV, 0, 31978, 0, 400000);
   kvolt = voltage/1000.0;
   }
   void ReadCurrent(){
   a2dReadC = adcOne.readADC_Differential_2_3();
-  current = map_float(a2dReadC, 0, 31992, 0, 2.0);
+  current = map_float(a2dReadC, 0, 31978, 0, 2.0);
   
 
   }
   // function to print a device address
+  void printAddress(DeviceAddress deviceAddress) {
+  for (uint8_t i = 0; i < 8; i++){
+    if (deviceAddress[i] < 16) Serial.print("0");
+      Serial.print(deviceAddress[i], HEX);
+  }
+}

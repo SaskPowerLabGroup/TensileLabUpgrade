@@ -11,7 +11,7 @@ Adafruit_SSD1306 display(OLED_RESET);
 // Replace the next variables with your SSID/Password combination
 const char* ssid = "testlab";
 const char* password = "HVLab001";
-const char* mqtt_server = "192.168.50.2";
+const char* mqtt_server = "192.168.50.10";
 WiFiClient espClient;
 PubSubClient client(espClient);
 long lastMsg = 0;
@@ -48,7 +48,7 @@ static const unsigned char PROGMEM logo16_glcd_bmp[] =
   B01111100, B11110000,
   B01110000, B01110000,
   B00000000, B00110000 };
-
+#define SSD1306_LCDHEIGHT 48
 #if (SSD1306_LCDHEIGHT != 48)
 #error("Height incorrect, please fix Adafruit_SSD1306.h!");
 #endif

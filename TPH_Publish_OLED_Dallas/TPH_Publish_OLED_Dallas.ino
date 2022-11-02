@@ -70,7 +70,7 @@ static const unsigned char PROGMEM logo16_glcd_bmp[] =
   B01111100, B11110000,
   B01110000, B01110000,
   B00000000, B00110000 };
-
+#define SSD1306_LCDHEIGHT 48
 #if (SSD1306_LCDHEIGHT != 48)
 #error("Height incorrect, please fix Adafruit_SSD1306.h!");
 #endif
@@ -289,10 +289,10 @@ void printResult(String text, SHT31D result) {
     
    
   }
-  void ReadVoltage(){
+ /* void ReadVoltage(){
   results = ads.readADC_Differential_0_1();
-  Voltage = map(resuts, 0, 32768, 0, 400);
-  }
+  Voltage = map(results, 0, 32768, 0, 400);
+  }*/
   // function to print a device address
 void printAddress(DeviceAddress deviceAddress) {
   for (uint8_t i = 0; i < 8; i++){
